@@ -847,15 +847,78 @@
     function processCSVData(results) {
       const data = results.data;
       
+      // Imprimir los encabezados para diagnóstico
+      if (data && data.length > 0) {
+        console.log("Encabezados del CSV:", Object.keys(data[0]));
+        console.log("Muestra de los primeros datos:", data[0]);
+      }
+      
       // Store all filtered data for later use
-      allData = data.filter(row => 
-        row["audience_macro"] && 
-        row["Date"] && 
-        row["Spend_USD"] && 
-        parseFloat(row["Spend_USD"]) > 0
-      );
+      allData = data.filter(row => {
+        // Verificar si las columnas existen
+        if (!row["audience_macro"]) {
+          console.warn("Falta audience_macro en la fila:", row);
+        }
+        if (!row["Date"]) {
+          console.warn("Falta Date en la fila:", row);
+        }
+        if (!row["Spend_USD"]) {
+          console.warn("Falta Spend_USD en la fila:", row);
+        }
+        
+        return row["audience_macro"] && 
+               row["Date"] && 
+               row["Spend_USD"] && 
+               parseFloat(row["Spend_USD"]) > 0;
+      });
       
       console.log(`Total rows: ${data.length}, After filtering: ${allData.length}`);
+      
+      // Si no hay datos después del filtrado, intentar buscar nombres alternativos de columnas
+      if (allData.length === 0 && data.length > 0) {
+        console.log("Intentando con nombres alternativos de columnas...");
+        
+        // Obtener nombres de columnas del archivo real
+        const columnas = Object.keys(data[0]);
+        console.log("Columnas disponibles:", columnas);
+        
+        // Intentar mapear a los nombres esperados
+        let columnaFecha = columnas.find(col => col.toLowerCase().includes('date') || col.toLowerCase().includes('fecha'));
+        let columnaAudiencia = columnas.find(col => col.toLowerCase().includes('audience') || col.toLowerCase().includes('macro') || col.toLowerCase().includes('audiencia'));
+        let columnaGasto = columnas.find(col => col.toLowerCase().includes('spend') || col.toLowerCase().includes('usd') || col.toLowerCase().includes('gasto'));
+        
+        console.log("Intentando con columnas alternativas:", {
+          fecha: columnaFecha,
+          audiencia: columnaAudiencia,
+          gasto: columnaGasto
+        });
+        
+        if (columnaFecha && columnaAudiencia && columnaGasto) {
+          allData = data.filter(row => 
+            row[columnaAudiencia] && 
+            row[columnaFecha] && 
+            row[columnaGasto] && 
+            parseFloat(row[columnaGasto]) > 0
+          );
+          
+          // Normalizar los nombres de las columnas
+          allData = allData.map(row => ({
+            "Date": row[columnaFecha],
+            "audience_macro": row[columnaAudiencia],
+            "Spend_USD": parseFloat(row[columnaGasto])
+          }));
+          
+          console.log(`Después de mapeo: ${allData.length} filas válidas`);
+        }
+      }
+      
+      // Si aún no hay datos, mostrar error
+      if (allData.length === 0) {
+        document.getElementById('loading-indicator').innerHTML = 
+          '<div class="alert alert-danger">Error: No se encontraron datos válidos en el archivo CSV. Verifica el formato y las columnas.</div>';
+        console.error("No se encontraron datos válidos después del filtrado. Revisa el formato del CSV.");
+        return;
+      }
       
       // Extract available years for filtering
       years = [...new Set(allData.map(row => {
