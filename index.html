@@ -780,8 +780,8 @@
         const decimalPart = Math.round((millions - integerPart) * 100);
         return { 
           main: '$' + integerPart, 
-          decimal: decimalPart.toString().padStart(2, '0') + 'M',
-          full: '$' + millions.toFixed(2) + 'M',
+          decimal: ',' + decimalPart.toString().padStart(2, '0') + 'M',
+          full: '$' + millions.toFixed(2).replace('.', ',') + 'M',
           suffix: 'M'
         };
       }
@@ -792,8 +792,8 @@
         const decimalPart = Math.round((thousands - integerPart) * 100);
         return { 
           main: '$' + integerPart, 
-          decimal: decimalPart.toString().padStart(2, '0') + 'K',
-          full: '$' + thousands.toFixed(2) + 'K',
+          decimal: ',' + decimalPart.toString().padStart(2, '0') + 'K',
+          full: '$' + thousands.toFixed(2).replace('.', ',') + 'K',
           suffix: 'K'
         };
       }
@@ -801,8 +801,8 @@
       // Para valores menores a mil
       return { 
         main: '$' + Math.floor(value), 
-        decimal: Math.round((value - Math.floor(value)) * 100).toString().padStart(2, '0'),
-        full: new Intl.NumberFormat('en-US', {
+        decimal: ',' + Math.round((value - Math.floor(value)) * 100).toString().padStart(2, '0'),
+        full: new Intl.NumberFormat('es-ES', {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 2
@@ -811,55 +811,55 @@
       };
     }
     
+    // Load data from CSV file
+    function loadCSVData() {
+      console.log("Loading CSV data...");
+      // Cargar datos directamente del archivo wells_fargo_Monthly_Spend_by_Macro.csv
+      fetch('wells_fargo_Monthly_Spend_by_Macro.csv')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('wells_fargo_Monthly_Spend_by_Macro.csv not found');
+          }
+          return response.text();
+        })
+        .then(csvData => {
+          Papa.parse(csvData, {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+              if (results.errors && results.errors.length > 0) {
+                console.error('Errors parsing CSV:', results.errors);
+              }
+              console.log("CSV parsed successfully. Processing data...");
+              processCSVData(results);
+            }
+          });
+        })
+        .catch(error => {
+          console.error('Error loading CSV:', error);
+          document.getElementById('loading-indicator').innerHTML = 
+            '<div class="alert alert-danger">Error: No se pudo cargar el archivo wells_fargo_Monthly_Spend_by_Macro.csv. Por favor, verifica que el archivo esté disponible.</div>';
+        });
+    }
+    
     // Process CSV data
     function processCSVData(results) {
       const data = results.data;
       
       // Store all filtered data for later use
       allData = data.filter(row => 
-        ((row["audience_category"] || row["audience_macro"] || row["target_audience"]) && 
-        (row["audience_category"] !== "Miscellaneous") &&
-        row["Date"] && row["Spend (USD)"] && 
-        parseFloat(row["Spend (USD)"]) > 0)
+        row["audience_macro"] && 
+        row["Date"] && 
+        row["Spend_USD"] && 
+        parseFloat(row["Spend_USD"]) > 0
       );
       
       console.log(`Total rows: ${data.length}, After filtering: ${allData.length}`);
       
-      // Corrección para formatos de fecha
-      allData.forEach(row => {
-        if (row["Date"] && typeof row["Date"] === 'string') {
-          // Convertir formatos de fecha MM/DD/YY a MM/DD/YYYY para evitar advertencias
-          if (row["Date"].match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) {
-            const parts = row["Date"].split('/');
-            let year = parseInt(parts[2]);
-            // Asumimos que años de 2 dígitos menores a 50 son 2000s, mayores son 1900s
-            if (year < 50) {
-              year += 2000;
-            } else {
-              year += 1900;
-            }
-            row["Date"] = `${parts[0]}/${parts[1]}/${year}`;
-          }
-        }
-      });
-      
       // Extract available years for filtering
       years = [...new Set(allData.map(row => {
-        let date;
-        if (typeof row["Date"] === 'string') {
-          // Probar varios formatos
-          if (row["Date"].match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-            date = moment(row["Date"], "MM/DD/YYYY").toDate();
-          } else if (row["Date"].match(/^\d{4}-\d{2}-\d{2}$/)) {
-            date = moment(row["Date"]).toDate();
-          } else {
-            const possibleFormats = ["MM-DD-YYYY", "YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"];
-            date = moment(row["Date"], possibleFormats).toDate();
-          }
-        } else {
-          date = new Date(row["Date"]);
-        }
-        return date.getFullYear();
+        return moment(row["Date"], "YYYY-MM").year();
       }))].sort();
       
       // Populate year filter
@@ -917,34 +917,8 @@
       
       // Process all data for main chart (not filtered by year)
       allData.forEach(row => {
-        // Corregir el formato de fecha
         const dateStr = row["Date"];
-        let formattedDate;
-        
-        // Intentar varios formatos de fecha posibles
-        if (typeof dateStr === 'string') {
-          // Si es MM/DD/YY (formato americano)
-          if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) {
-            formattedDate = moment(dateStr, "MM/DD/YY").format('YYYY-MM');
-          }
-          // Si es MM/DD/YYYY (formato americano con año de 4 dígitos)
-          else if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-            formattedDate = moment(dateStr, "MM/DD/YYYY").format('YYYY-MM');
-          }
-          // Si ya está en formato ISO
-          else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            formattedDate = moment(dateStr).format('YYYY-MM');
-          }
-          // Otros formatos posibles
-          else {
-            // Intentar varios formatos comunes
-            const possibleFormats = ["MM-DD-YYYY", "YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"];
-            formattedDate = moment(dateStr, possibleFormats).format('YYYY-MM');
-          }
-        } else {
-          // Si por alguna razón no es string (podría ser un objeto Date)
-          formattedDate = moment(dateStr).format('YYYY-MM');
-        }
+        const formattedDate = dateStr; // Ya está en formato YYYY-MM
         
         // Verificar si la fecha es válida
         if (!moment(formattedDate, 'YYYY-MM').isValid()) {
@@ -952,22 +926,8 @@
           return; // Saltar este registro
         }
 
-        const spend = parseFloat(row["Spend (USD)"]) || 0;
-        
-        // Process audience targeting
-        let audience;
-        if (row["audience_macro"]) {
-          audience = row["audience_macro"];
-        } else if (row["audience_category"]) {
-          audience = row["audience_category"];
-        } else if (row["target_audience"]) {
-          // Determine macro category from the categorized audience
-          let detailedCategory = categorizeAudience(row["target_audience"]);
-          audience = getMacroCategory(detailedCategory);
-        }
-        
-        // Skip Miscellaneous category
-        if (audience === "Miscellaneous") return;
+        const spend = parseFloat(row["Spend_USD"]) || 0;
+        const audience = row["audience_macro"];
         
         // Track audience categories
         if (!audienceCategories[audience]) {
@@ -988,8 +948,76 @@
       
       // Update main visualizations
       updateAudienceChart();
+      
+      // Update summary stats
+      updateAudienceSummary();
     }
+    
+    // Update the audience summary cards
+    function updateAudienceSummary() {
+      const summaryContainer = document.getElementById('audience-summary-container');
+      if (!summaryContainer) return;
+      
+      summaryContainer.innerHTML = '';
+      
+      // Crear tarjetas para cada categoría principal
+      const macroCategories = {
+        'Business · Owner & Growth': { 
+          class: 'business-segments', 
+          icon: 'B' 
+        },
+        'Consumer · Financial Goals': { 
+          class: 'consumer-financial', 
+          icon: 'F' 
+        },
+        'Consumer · Shopping & Products': { 
+          class: 'total-spend', 
+          icon: 'S' 
+        },
+        'Consumer · Lifestyle & Interests': { 
+          class: 'demographic-segments', 
+          icon: 'L' 
+        },
+        'Consumer · Banking Preferences': { 
+          class: 'demographic-segments', 
+          icon: 'P' 
+        },
+        'Workforce & Employment': { 
+          class: 'business-segments', 
+          icon: 'W' 
+        }
+      };
+      
+      // Ordenar por gasto total (mayor a menor)
+      const sortedCategories = Object.entries(audienceCategories)
+        .sort((a, b) => b[1] - a[1]);
+      
+      // Crear tarjetas para cada categoría
+      sortedCategories.forEach(([category, spend]) => {
+        const cardClass = macroCategories[category]?.class || 'demographic-segments';
+        const cardIcon = macroCategories[category]?.icon || '?';
         
+        const formatted = formatCurrency(spend);
+        
+        const cardHTML = `
+          <div class="card ${cardClass}">
+            <div class="card-header">
+              <h4 class="card-title">${category}</h4>
+              <div class="card-icon">${cardIcon}</div>
+            </div>
+            <div class="metric-value">
+              ${formatted.main}<span class="metric-decimal">${formatted.decimal}</span>
+            </div>
+            <div class="metric-context">
+              ${(spend / totalAudienceReferences * 100).toFixed(2)}% del gasto total
+            </div>
+          </div>
+        `;
+        
+        summaryContainer.innerHTML += cardHTML;
+      });
+    }
+    
     // Create or update the audience chart
     function updateAudienceChart() {
       // Get year filter value
@@ -1222,8 +1250,7 @@
       let filteredData = [...allData];
       if (yearFilter !== 'all') {
         filteredData = filteredData.filter(row => {
-          const date = new Date(row["Date"]);
-          return date.getFullYear() == yearFilter;
+          return row["Date"].startsWith(yearFilter);
         });
       }
       
@@ -1232,22 +1259,8 @@
       let totalSpend = 0;
       
       filteredData.forEach(row => {
-        const spend = parseFloat(row["Spend (USD)"]) || 0;
-        
-        // Get audience category
-        let audience;
-        if (row["audience_macro"]) {
-          audience = row["audience_macro"];
-        } else if (row["audience_category"]) {
-          audience = row["audience_category"];
-        } else if (row["target_audience"]) {
-          // Determine macro category from the categorized audience
-          let detailedCategory = categorizeAudience(row["target_audience"]);
-          audience = getMacroCategory(detailedCategory);
-        }
-        
-        // Skip Miscellaneous category
-        if (audience === "Miscellaneous") return;
+        const spend = parseFloat(row["Spend_USD"]) || 0;
+        const audience = row["audience_macro"];
         
         // Track audience categories
         if (!categorySpend[audience]) {
@@ -1494,119 +1507,6 @@
       } catch (error) {
         console.error("Error rendering charts:", error);
       }
-    }
-    
-    // Load data from CSV file
-    function loadCSVData() {
-      console.log("Loading CSV data...");
-      // Intenta cargar primero el archivo con audiencias de Wells Fargo
-      fetch('Wells-Fargo-Full_with_audiences.csv')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('CSV with audiences not found, trying alternative files');
-          }
-          return response.text();
-        })
-        .then(csvData => {
-          Papa.parse(csvData, {
-            header: true,
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-              if (results.errors && results.errors.length > 0) {
-                console.error('Errors parsing CSV:', results.errors);
-              }
-              console.log("CSV parsed successfully. Processing data...");
-              processCSVData(results);
-            }
-          });
-        })
-        .catch(error => {
-          console.error('Error loading specified CSV:', error);
-          
-          // Try other possible CSV files as fallback
-          console.log("Trying alternative CSV file...");
-          fetch('Wells-Fargo-Full_with_audience_category.csv')
-            .then(response => {
-              if (!response.ok) {
-                throw new Error('Alternative CSV not found, trying next option');
-              }
-              return response.text();
-            })
-            .then(csvData => {
-              Papa.parse(csvData, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                  if (results.errors && results.errors.length > 0) {
-                    console.error('Errors parsing CSV:', results.errors);
-                  }
-                  console.log("Alternative CSV parsed successfully.");
-                  processCSVData(results);
-                }
-              });
-            })
-            .catch(error => {
-              console.error('Error loading alternative CSV:', error);
-              
-              // Try Capital One files as fallback since they are available
-              console.log("Trying Capital One CSV files...");
-              fetch('Capital-One-Full_with_audiences.csv')
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error('Capital One CSV file not found, trying next option');
-                  }
-                  return response.text();
-                })
-                .then(csvData => {
-                  Papa.parse(csvData, {
-                    header: true,
-                    dynamicTyping: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                      if (results.errors && results.errors.length > 0) {
-                        console.error('Errors parsing CSV:', results.errors);
-                      }
-                      console.log("Capital One CSV parsed successfully. Processing data...");
-                      processCSVData(results);
-                    }
-                  });
-                })
-                .catch(error => {
-                  console.error('Error loading Capital One CSV:', error);
-                  
-                  // Try Capital One with audience categories as fallback
-                  console.log("Trying Capital One with categories...");
-                  fetch('Capital-One-Full_with_audience_category.csv')
-                    .then(response => {
-                      if (!response.ok) {
-                        throw new Error('Capital One category CSV not found, trying original');
-                      }
-                      return response.text();
-                    })
-                    .then(csvData => {
-                      Papa.parse(csvData, {
-                        header: true,
-                        dynamicTyping: true,
-                        skipEmptyLines: true,
-                        complete: function(results) {
-                          if (results.errors && results.errors.length > 0) {
-                            console.error('Errors parsing CSV:', results.errors);
-                          }
-                          console.log("Capital One category CSV parsed successfully.");
-                          processCSVData(results);
-                        }
-                      });
-                    })
-                    .catch(error => {
-                      console.error('Error loading all CSV options:', error);
-                      document.getElementById('loading-indicator').innerHTML = 
-                        '<div class="alert alert-danger">Error: Could not load any CSV file. Please verify that the files are available.</div>';
-                    });
-                });
-            });
-        });
     }
     
     // Load CSV data on page load
