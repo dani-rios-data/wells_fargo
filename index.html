@@ -540,6 +540,14 @@
       <p>Loading data, please wait...</p>
     </div>
 
+    <!-- Selector de archivo manual -->
+    <div id="manual-upload" style="display: none; text-align: center; padding: 30px; background-color: #f8f8f8; border-radius: 8px; margin-bottom: 20px;">
+      <h3>Carga manual de datos</h3>
+      <p>El archivo wells_fargo_Monthly_Spend_by_Macro.csv no se pudo cargar automáticamente. Por favor, selecciona el archivo manualmente:</p>
+      <input type="file" id="csv-file-input" accept=".csv" class="form-control" style="max-width: 400px; margin: 0 auto 15px auto;">
+      <button id="load-csv-button" class="btn btn-primary">Cargar CSV</button>
+    </div>
+
     <!-- Target Audience Analysis Section -->
     <div class="section">
       <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -823,6 +831,11 @@
           return response.text();
         })
         .then(csvData => {
+          // Verificar si es un archivo Git LFS
+          if (csvData.trim().startsWith('version https://git-lfs.github.com/spec/v1')) {
+            throw new Error('El archivo es un puntero Git LFS, no un CSV real');
+          }
+          
           Papa.parse(csvData, {
             header: true,
             dynamicTyping: true,
@@ -838,9 +851,93 @@
         })
         .catch(error => {
           console.error('Error loading CSV:', error);
-          document.getElementById('loading-indicator').innerHTML = 
-            '<div class="alert alert-danger">Error: No se pudo cargar el archivo wells_fargo_Monthly_Spend_by_Macro.csv. Por favor, verifica que el archivo esté disponible.</div>';
+          // Mostrar el selector de archivos manual
+          document.getElementById('loading-indicator').style.display = 'none';
+          document.getElementById('manual-upload').style.display = 'block';
         });
+    }
+    
+    // Función para manejar la carga manual del CSV
+    function handleManualUpload() {
+      const fileInput = document.getElementById('csv-file-input');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        alert('Por favor, selecciona un archivo CSV');
+        return;
+      }
+      
+      // Mostrar indicador de carga
+      document.getElementById('manual-upload').style.display = 'none';
+      document.getElementById('loading-indicator').style.display = 'block';
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const csvData = e.target.result;
+        
+        Papa.parse(csvData, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            if (results.errors && results.errors.length > 0) {
+              console.error('Errors parsing CSV:', results.errors);
+            }
+            console.log("CSV uploaded manually and parsed successfully. Processing data...");
+            processCSVData(results);
+          }
+        });
+      };
+      
+      reader.readAsText(file);
+    }
+    
+    // Agregar datos de ejemplo si todo falla
+    function loadSampleData() {
+      console.log("Cargando datos de ejemplo predefinidos...");
+      
+      // Datos de ejemplo basados en wells_fargo_Monthly_Spend_by_Macro.csv
+      const sampleData = [
+        { Date: "2024-01", audience_macro: "Business · Owner & Growth", Spend_USD: 2105836.906 },
+        { Date: "2024-01", audience_macro: "Consumer · Banking Preferences", Spend_USD: 1302341.5736 },
+        { Date: "2024-01", audience_macro: "Consumer · Financial Goals", Spend_USD: 2838508.3221 },
+        { Date: "2024-01", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 306528.734 },
+        { Date: "2024-01", audience_macro: "Consumer · Shopping & Products", Spend_USD: 1217002.0393 },
+        { Date: "2024-01", audience_macro: "Workforce & Employment", Spend_USD: 83776.3166 },
+        { Date: "2024-02", audience_macro: "Business · Owner & Growth", Spend_USD: 1165907.9302 },
+        { Date: "2024-02", audience_macro: "Consumer · Banking Preferences", Spend_USD: 1111192.2031 },
+        { Date: "2024-02", audience_macro: "Consumer · Financial Goals", Spend_USD: 3060013.3422 },
+        { Date: "2024-02", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 640443.2169 },
+        { Date: "2024-02", audience_macro: "Consumer · Shopping & Products", Spend_USD: 2039016.8411 },
+        { Date: "2024-02", audience_macro: "Workforce & Employment", Spend_USD: 13673.8333 },
+        { Date: "2024-03", audience_macro: "Business · Owner & Growth", Spend_USD: 1326679.0538 },
+        { Date: "2024-03", audience_macro: "Consumer · Banking Preferences", Spend_USD: 1261499.8277 },
+        { Date: "2024-03", audience_macro: "Consumer · Financial Goals", Spend_USD: 3916514.7749 },
+        { Date: "2024-03", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 797464.113 },
+        { Date: "2024-03", audience_macro: "Consumer · Shopping & Products", Spend_USD: 3455059.9736 },
+        { Date: "2024-03", audience_macro: "Workforce & Employment", Spend_USD: 21159.8672 },
+        { Date: "2024-04", audience_macro: "Business · Owner & Growth", Spend_USD: 995768.3335 },
+        { Date: "2024-04", audience_macro: "Consumer · Banking Preferences", Spend_USD: 1921048.8351 },
+        { Date: "2024-04", audience_macro: "Consumer · Financial Goals", Spend_USD: 4408653.5986 },
+        { Date: "2024-04", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 1924576.0854 },
+        { Date: "2024-04", audience_macro: "Consumer · Shopping & Products", Spend_USD: 2206129.1186 },
+        { Date: "2024-04", audience_macro: "Workforce & Employment", Spend_USD: 19667.7394 },
+        { Date: "2024-05", audience_macro: "Business · Owner & Growth", Spend_USD: 699272.4603 },
+        { Date: "2024-05", audience_macro: "Consumer · Banking Preferences", Spend_USD: 1151441.8528 },
+        { Date: "2024-05", audience_macro: "Consumer · Financial Goals", Spend_USD: 3631015.9343 },
+        { Date: "2024-05", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 1341269.1206 },
+        { Date: "2024-05", audience_macro: "Consumer · Shopping & Products", Spend_USD: 1707747.4792 },
+        { Date: "2024-05", audience_macro: "Workforce & Employment", Spend_USD: 25169.8607 },
+        { Date: "2024-06", audience_macro: "Business · Owner & Growth", Spend_USD: 542133.3681 },
+        { Date: "2024-06", audience_macro: "Consumer · Banking Preferences", Spend_USD: 560742.3104 },
+        { Date: "2024-06", audience_macro: "Consumer · Financial Goals", Spend_USD: 1861537.5719 },
+        { Date: "2024-06", audience_macro: "Consumer · Lifestyle & Interests", Spend_USD: 961459.0126 },
+        { Date: "2024-06", audience_macro: "Consumer · Shopping & Products", Spend_USD: 1000243.3986 },
+        { Date: "2024-06", audience_macro: "Workforce & Employment", Spend_USD: 13945.633 }
+      ];
+      
+      // Procesar los datos de ejemplo
+      processCSVData({ data: sampleData, errors: [] });
     }
     
     // Process CSV data
@@ -1576,6 +1673,20 @@
     document.addEventListener('DOMContentLoaded', function() {
       console.log("DOM loaded, initializing application...");
       loadCSVData();
+      
+      // Añadir listener para el botón de carga manual
+      document.getElementById('load-csv-button').addEventListener('click', handleManualUpload);
+      
+      // Añadir opción para cargar datos de ejemplo predefinidos
+      const manualUploadDiv = document.getElementById('manual-upload');
+      
+      const sampleButton = document.createElement('button');
+      sampleButton.className = 'btn btn-secondary mt-3';
+      sampleButton.textContent = 'Cargar datos predefinidos';
+      sampleButton.onclick = loadSampleData;
+      
+      manualUploadDiv.appendChild(document.createElement('br'));
+      manualUploadDiv.appendChild(sampleButton);
     });
   </script>
 </body>
