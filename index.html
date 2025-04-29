@@ -1640,9 +1640,23 @@
           tooltip: {
             enabled: true,
             y: {
-              formatter: function(value) {
-                return formatLargeNumber(value, true);
+              formatter: function(value, { seriesIndex, dataPointIndex, w }) {
+                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(2);
+                return `${formatLargeNumber(value, true)} (${percentage}%)`;
               }
+            },
+            custom: function({ series, seriesIndex, dataPointIndex, w }) {
+              const value = series[seriesIndex];
+              const label = w.globals.labels[seriesIndex];
+              const total = series.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(2);
+              
+              return `<div class="custom-tooltip">
+                <div class="tooltip-title">${label}</div>
+                <div class="tooltip-value">${formatLargeNumber(value, true)}</div>
+                <div class="tooltip-percentage">${percentage}% of total spend</div>
+              </div>`;
             }
           },
           responsive: [{
