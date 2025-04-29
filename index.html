@@ -833,7 +833,9 @@
         .then(csvData => {
           // Verificar si es un archivo Git LFS
           if (csvData.trim().startsWith('version https://git-lfs.github.com/spec/v1')) {
-            throw new Error('El archivo es un puntero Git LFS, no un CSV real');
+            console.log('El archivo es un puntero Git LFS, cargando datos predefinidos automáticamente');
+            loadSampleData();
+            return;
           }
           
           Papa.parse(csvData, {
@@ -851,9 +853,9 @@
         })
         .catch(error => {
           console.error('Error loading CSV:', error);
-          // Mostrar el selector de archivos manual
-          document.getElementById('loading-indicator').style.display = 'none';
-          document.getElementById('manual-upload').style.display = 'block';
+          // Cargar datos predefinidos automáticamente en caso de error
+          console.log('Cargando datos predefinidos automáticamente debido a un error en la carga del CSV');
+          loadSampleData();
         });
     }
     
